@@ -13,7 +13,14 @@
 # In the absence of this, it is reasonable to assume that the data of the mother node are also 
 # characteristic of the daughters. This idea is implemented in the function fill.tree() which takes 
 # a list of trees or a multiPhylo object, based on various language identifiers, as specified by the 
-# "id.type" argument
+# "id.type" argument. 
+# 
+# *************************************************************************************************
+# NOTE: the UULID type here only collects ISO, AUTOTYP and GLOTTOCODE, not WALS IDs because we have 
+# no data with WALS IDs. This is different from the original UULID in Dan's data, but matches our 
+# present data format.
+# And it requires preprocessing to harmonize with my data (see lines 41ff below)
+# ***********************************************************************************************
 #
 # The second function, prune.to.data(), prunes the trees to retain only tips with data.
 #
@@ -29,7 +36,18 @@ require(dplyr)
 require(ape)
 require(phylobase)
 
-fill.tree <- function(trees, ids, id.type = c('ISO', 'AUTOTYP.LID', 'GLOTTOCODE'), ...) {
+fill.tree <- function(trees, ids, id.type = c('ISO', 'AUTOTYP.LID', 'GLOTTOCODE', 'UULID'), ...) {
+	
+	# if UULID is chosen, we first kick out the WALS IDs because we can't match them. Also we match them with the format we have
+	if(id.type %in% 'UULID') {
+		trees <- lapply(trees, function(t) {
+								t$tip.label <- gsub('\\[w\\-.*?\\]', '', t$tip.label)
+								t$tip.label <- gsub('\\[i\\-\\]', '\\[i\\-NA\\]', t$tip.label)
+								t$tip.label <- gsub('\\[a\\-\\]', '\\[a\\-NA\\]', t$tip.label)
+								t$tip.label <- gsub('\\[g\\-\\]', '\\[g\\-NA\\]', t$tip.label)
+								return(t)
+							})
+						}
 	
 	# tree is a multiPhylo object or a list of trees
 	# ids is a vector of IDs that index the data we have
@@ -38,8 +56,9 @@ fill.tree <- function(trees, ids, id.type = c('ISO', 'AUTOTYP.LID', 'GLOTTOCODE'
 	# -- choose ID type:
 	id.regexes <- list(
 			ISO = '.*\\[i\\-([a-z]{3,4})\\].*', 	
-	        	AUTOTYP.LID = '.*\\[a\\-(\\d{1,4})\\].*',
-			GLOTTOCODE = '.*\\[g\\-([a-z]{4}\\d{4})\\].*'
+	        AUTOTYP.LID = '.*\\[a\\-(\\d{1,4})\\].*',
+			GLOTTOCODE = '.*\\[g\\-([a-z]{4}\\d{4})\\].*',
+			UULID = '.*(\\[i\\-([a-z]{3,4}|NA)\\]\\[a\\-(\\d{1,4}|NA)\\]\\[g\\-([a-z]{4}\\d{4}|NA)\\]).*'
 			)			
 	id.regex <- id.regexes[[match.arg(id.type)]]
 	
